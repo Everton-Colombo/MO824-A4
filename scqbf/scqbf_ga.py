@@ -116,8 +116,23 @@ class ScQbfGA:
             ones_indices = random.sample(range(self.instance.n), num_ones)
             for idx in ones_indices:
                 chromosome[idx] = 1
+            chromosome = self._make_feasible(chromosome)
             self.population.append(chromosome)
-    
+        
+    def _make_feasible(self, chromosome: Chromosome) -> Chromosome:
+        """
+        If the chromosome is not feasible, add random elements that improve coverage until it becomes feasible.
+        """
+        
+        decoded_solution = self.docode(chromosome)
+        while not self.evaluator.is_solution_feasible(decoded_solution):
+            cl = [i for i in range(self.instance.n) if chromosome[i] == 0 and self.evaluator.evaluate_insertion_delta_coverage(i, decoded_solution) > 0]
+            chosen = random.choice(cl)
+            chromosome[chosen] = 1
+            decoded_solution.elements.append(chosen)
+            
+        return chromosome
+
     def _select_parents(self) -> Population:
         """ Tournament selection implementation."""
         parents: Population = []
@@ -146,7 +161,10 @@ class ScQbfGA:
             
             offspring1 = parent1[:point1] + parent2[point1:point2] + parent1[point2:]
             offspring2 = parent2[:point1] + parent1[point1:point2] + parent2[point2:]
-            
+
+            offspring1 = self._make_feasible(offspring1)
+            offspring2 = self._make_feasible(offspring2)
+
             offspring.extend([offspring1, offspring2])
         
         return offspring
@@ -157,6 +175,7 @@ class ScQbfGA:
             for i in range(len(chromosome)):
                 if random.random() < mutation_rate:
                     chromosome[i] = 1 - chromosome[i]  # Flip bit
+            chromosome = self._make_feasible(chromosome)
         
         return offspring
 
