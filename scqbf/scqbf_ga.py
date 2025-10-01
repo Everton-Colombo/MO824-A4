@@ -1,7 +1,8 @@
-from scqbf_instance import *
-from scqbf_solution import *
-from scqbf_evaluator import *
+from .scqbf_instance import *
+from .scqbf_solution import *
+from .scqbf_evaluator import *
 import time
+import random
 
 from typing import List
 
@@ -13,7 +14,7 @@ Population = List[Chromosome]
 
 class ScQbfGA:
     
-    def __init__(self, instance: ScQbfInstance, debug_options: dict = {}):
+    def __init__(self, instance: ScQbfInstance, population_size: int = 100, mutation_rate_multiplier: int = 1, debug_options: dict = {}):
         # GA related properties
         self.instance = instance
         self.evaluator = ScQbfEvaluator(instance)
@@ -21,6 +22,8 @@ class ScQbfGA:
         self.population: Population = []
         self.best_chromosome: Chromosome = None
         self.best_solution: ScQbfSolution = None
+        self.population_size = population_size
+        self.mutation_rate_multiplier = mutation_rate_multiplier
         
         self.debug_options = debug_options
         
@@ -54,8 +57,8 @@ class ScQbfGA:
             if self._no_improvement_iter >= patience:
                 self.stop_reason = "patience_exceeded"
                 return True
-            elif self.best_solution is not None and self.current_solution is not None and self._prev_best_solution is not None:
-                if self.evaluator.evaluate_objfun(self.current_solution) <= self.evaluator.evaluate_objfun(self._prev_best_solution):
+            elif self.best_solution is not None and self._prev_best_solution is not None:
+                if self.evaluator.evaluate_objfun(self.best_solution) <= self.evaluator.evaluate_objfun(self._prev_best_solution):
                     self._no_improvement_iter += 1
                 else:
                     self._no_improvement_iter = 0
@@ -70,8 +73,7 @@ class ScQbfGA:
             print(f"Iteration {self._iter}: Best fitness = {self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 'N/A'}")
 
         if self.debug_options.get("save_history", False):
-            self.history.append((self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 0,
-                                 self.evaluator.evaluate_objfun(self.current_solution) if self.current_solution else 0))
+            self.history.append((self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 0))
 
 
     def solve(self) -> ScQbfSolution:
@@ -86,32 +88,90 @@ class ScQbfGA:
             parents = self._select_parents()
             offspring = self._crossover(parents)
             offspring = self._mutate(offspring)
-            new_population = self._select_population(offspring)
-            
-            for chromosome in new_population:
-                fitness = self.evaluator.evaluate_objfun(self.docode(chromosome))
+            self.population = self._select_population(offspring)
+
+            for chromosome in self.population:
+                solution = self.docode(chromosome)
+                fitness = self.evaluator.evaluate_objfun(solution)
                 if self.best_solution is None or fitness > self.evaluator.evaluate_objfun(self.best_solution):
-                    self.best_solution = self.docode(chromosome)
+                    self.best_solution = solution
                     self.best_chromosome = chromosome
         
         return self.best_solution
         
     def docode(self, chromosome: Chromosome) -> ScQbfSolution:
-        pass
-    
+        """ Decode a chromosome into a ScQbfSolution. """
+        solution = ScQbfSolution([])
+        for i in range(len(chromosome)):
+            if chromosome[i] == 1:
+                solution.elements.append(i)
+
+        return solution
+
     def _initialize_population(self):
-        pass
+        self.population = []
+        for _ in range(self.population_size):
+            chromosome = [0] * self.instance.n
+            num_ones = random.randint(1, self.instance.n)
+            ones_indices = random.sample(range(self.instance.n), num_ones)
+            for idx in ones_indices:
+                chromosome[idx] = 1
+            self.population.append(chromosome)
     
     def _select_parents(self) -> Population:
-        pass
+        """ Tournament selection implementation."""
+        parents: Population = []
+        
+        while len(parents) < self.population_size:
+            tournament = random.sample(self.population, 2)
+            tournament_fitness = [self.evaluator.evaluate_objfun(self.docode(chrom)) for chrom in tournament]
+            winner = tournament[tournament_fitness.index(max(tournament_fitness))]
+            parents.append(winner)
+        
+        return parents
     
     def _crossover(self, parents: Population) -> Population:
-        pass
+        """
+        Two-point crossover implementation.
+        """
+        offspring: Population = []
+        
+        for i in range(0, len(parents), 2):
+            parent1, parent2 = parents[i], parents[i + 1]
+            
+            point1, point2 = sorted([
+                random.randint(0, self.instance.n - 1),
+                random.randint(0, self.instance.n - 1)
+            ])
+            
+            offspring1 = parent1[:point1] + parent2[point1:point2] + parent1[point2:]
+            offspring2 = parent2[:point1] + parent1[point1:point2] + parent2[point2:]
+            
+            offspring.extend([offspring1, offspring2])
+        
+        return offspring
     
     def _mutate(self, offspring: Population) -> Population:
-        pass
+        for chromosome in offspring:
+            mutation_rate = 1 / self.instance.n * self.mutation_rate_multiplier # when multiplier = 1, expected 1 mutation per chromosome
+            for i in range(len(chromosome)):
+                if random.random() < mutation_rate:
+                    chromosome[i] = 1 - chromosome[i]  # Flip bit
+        
+        return offspring
 
     def _select_population(self, offspring: Population) -> Population:
-        pass
-    
-    
+        """Elitist selection implementation. replace worst single offspring with best from previous generation."""
+        worst_chromosome = min(offspring, 
+                            key=lambda chrom: self.evaluator.evaluate_objfun(self.docode(chrom)))
+        
+        # Only replace if the worst offspring is worse than the best from previous generation
+        if (self.best_chromosome is not None and 
+            self.evaluator.evaluate_objfun(self.docode(worst_chromosome)) < 
+            self.evaluator.evaluate_objfun(self.docode(self.best_chromosome))):
+            
+            worst_index = offspring.index(worst_chromosome)
+            offspring[worst_index] = self.best_chromosome
+        
+        return offspring
+
