@@ -3,8 +3,9 @@ from .scqbf_solution import *
 from .scqbf_evaluator import *
 import time
 import random
+from dataclasses import dataclass
 
-from typing import List
+from typing import List, Literal
 
 
 # Type aliases:
@@ -12,19 +13,24 @@ Chromosome = List[int]  # Example chromosome representation
 Population = List[Chromosome]
 
 
+@dataclass
+class GAStrategy:
+    population_init: Literal["random", "latin_hypercube"] = "random"
+    # Add other strategies as needed
 class ScQbfGA:
     
-    def __init__(self, instance: ScQbfInstance, population_size: int = 100, mutation_rate_multiplier: int = 1, debug_options: dict = {}):
+    def __init__(self, instance: ScQbfInstance, population_size: int = 100, mutation_rate_multiplier: int = 1,
+                 ga_strategy: GAStrategy = GAStrategy(), debug_options: dict = {}):
         # GA related properties
         self.instance = instance
         self.evaluator = ScQbfEvaluator(instance)
-
         self.population: Population = []
         self.best_chromosome: Chromosome = None
         self.best_solution: ScQbfSolution = None
         self.population_size = population_size
         self.mutation_rate_multiplier = mutation_rate_multiplier
-        
+
+        self.ga_strategy = ga_strategy
         self.debug_options = debug_options
         self._cache = {}
         
@@ -117,6 +123,14 @@ class ScQbfGA:
         return self._cache[key]
 
     def _initialize_population(self):
+        if self.ga_strategy.population_init == "random":
+            self._initialize_population_random()
+        elif self.ga_strategy.population_init == "latin_hypercube":
+            self._initialize_population_latin_hypercube()
+        else:
+            raise ValueError(f"Unknown population initialization strategy: {self.ga_strategy.population_init}")
+        
+    def _initialize_population_random(self):
         self.population = []
         for _ in range(self.population_size):
             chromosome = [0] * self.instance.n
@@ -126,7 +140,13 @@ class ScQbfGA:
                 chromosome[idx] = 1
             chromosome = self._make_feasible(chromosome)
             self.population.append(chromosome)
-        
+
+    def _initialize_population_latin_hypercube(self):
+        self.population = []
+        # Implement Latin Hypercube Sampling initialization here
+        # This is a placeholder for the actual implementation
+        raise NotImplementedError("Latin Hypercube initialization not implemented yet.")
+
     def _make_feasible(self, chromosome: Chromosome) -> Chromosome:
         """
         If the chromosome is not feasible, add random elements that improve coverage until it becomes feasible.
