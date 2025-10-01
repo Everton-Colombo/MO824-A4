@@ -142,10 +142,29 @@ class ScQbfGA:
             self.population.append(chromosome)
 
     def _initialize_population_latin_hypercube(self):
+        if self.population_size % 2 != 0:
+            raise ValueError("Population size must be a multiple of the allele count (here, 2) for Latin Hypercube Sampling.")
+        
         self.population = []
-        # Implement Latin Hypercube Sampling initialization here
-        # This is a placeholder for the actual implementation
-        raise NotImplementedError("Latin Hypercube initialization not implemented yet.")
+        
+        for i in range(self.population_size):
+            chromosome = [0] * self.instance.n
+            self.population.append(chromosome)
+        
+        # For each gene position (column), create a random permutation
+        for gene_pos in range(self.instance.n):
+            # Create permutation of population indices [0, 1, 2, ..., population_size-1]
+            permutation = list(range(self.population_size))
+            random.shuffle(permutation)
+            
+            # Assign alleles based on permutation index modulo 2
+            for pop_idx in range(self.population_size):
+                allele = permutation[pop_idx] % 2
+                self.population[pop_idx][gene_pos] = allele
+        
+        # fix feasibility
+        for i in range(len(self.population)):
+            self.population[i] = self._make_feasible(self.population[i])
 
     def _make_feasible(self, chromosome: Chromosome) -> Chromosome:
         """
