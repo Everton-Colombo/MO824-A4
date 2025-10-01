@@ -26,6 +26,7 @@ class ScQbfGA:
         self.mutation_rate_multiplier = mutation_rate_multiplier
         
         self.debug_options = debug_options
+        self._cache = {}
         
         # Internal properties for managing execution and termination criteria
         self._start_time = None                         # Start time of the algorithm
@@ -91,15 +92,14 @@ class ScQbfGA:
             self.population = self._select_population(offspring)
 
             for chromosome in self.population:
-                solution = self.docode(chromosome)
-                fitness = self.evaluator.evaluate_objfun(solution)
+                solution, fitness = self._cached_decode_and_eval(chromosome)
                 if self.best_solution is None or fitness > self.evaluator.evaluate_objfun(self.best_solution):
                     self.best_solution = solution
                     self.best_chromosome = chromosome
         
         return self.best_solution
         
-    def docode(self, chromosome: Chromosome) -> ScQbfSolution:
+    def decode(self, chromosome: Chromosome) -> ScQbfSolution:
         """ Decode a chromosome into a ScQbfSolution. """
         solution = ScQbfSolution([])
         for i in range(len(chromosome)):
@@ -107,6 +107,14 @@ class ScQbfGA:
                 solution.elements.append(i)
 
         return solution
+
+    def _cached_decode_and_eval(self, chromosome: Chromosome) -> tuple[ScQbfSolution, float]:
+        key = tuple(chromosome)  # O(n) to create tuple
+        if key not in self._cache:  # O(1) average lookup
+            solution = self.decode(chromosome)
+            fitness = self.evaluator.evaluate_objfun(solution)
+            self._cache[key] = (solution, fitness)  # O(1) average insertion
+        return self._cache[key]
 
     def _initialize_population(self):
         self.population = []
@@ -124,7 +132,7 @@ class ScQbfGA:
         If the chromosome is not feasible, add random elements that improve coverage until it becomes feasible.
         """
         
-        decoded_solution = self.docode(chromosome)
+        decoded_solution, _ = self._cached_decode_and_eval(chromosome)
         while not self.evaluator.is_solution_feasible(decoded_solution):
             cl = [i for i in range(self.instance.n) if chromosome[i] == 0 and self.evaluator.evaluate_insertion_delta_coverage(i, decoded_solution) > 0]
             chosen = random.choice(cl)
@@ -139,7 +147,7 @@ class ScQbfGA:
         
         while len(parents) < self.population_size:
             tournament = random.sample(self.population, 2)
-            tournament_fitness = [self.evaluator.evaluate_objfun(self.docode(chrom)) for chrom in tournament]
+            tournament_fitness = [self._cached_decode_and_eval(chrom)[1] for chrom in tournament]
             winner = tournament[tournament_fitness.index(max(tournament_fitness))]
             parents.append(winner)
         
@@ -182,12 +190,12 @@ class ScQbfGA:
     def _select_population(self, offspring: Population) -> Population:
         """Elitist selection implementation. replace worst single offspring with best from previous generation."""
         worst_chromosome = min(offspring, 
-                            key=lambda chrom: self.evaluator.evaluate_objfun(self.docode(chrom)))
+                            key=lambda chrom: self._cached_decode_and_eval(chrom)[1])
         
         # Only replace if the worst offspring is worse than the best from previous generation
         if (self.best_chromosome is not None and 
-            self.evaluator.evaluate_objfun(self.docode(worst_chromosome)) < 
-            self.evaluator.evaluate_objfun(self.docode(self.best_chromosome))):
+            self._cached_decode_and_eval(worst_chromosome)[1] < 
+            self._cached_decode_and_eval(self.best_chromosome)[1]):
             
             worst_index = offspring.index(worst_chromosome)
             offspring[worst_index] = self.best_chromosome
