@@ -1,0 +1,2 @@
+class GA(AbstractGA):
+    pass

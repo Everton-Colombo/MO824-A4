@@ -16,11 +16,13 @@ class ScQbfEvaluator:
         A = self.problem_instance.A
         total = 0.0
 
+        # TODO Fix this, currently adds as if the subsets indexes were the actual elements
         # Calculate QBF value directly from solution indices
         for i in solution.elements:
             for j in solution.elements:
                 total += A[i][j]
 
+        # TODO Fix this
         solution._last_objfun_val = total
         return total
 

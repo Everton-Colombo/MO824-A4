@@ -1,0 +1,2 @@
+class AbstractGA:
+    pass
