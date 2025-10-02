@@ -1,6 +1,6 @@
-from TabuSearch import Solution
-from TabuSearch.metaheuristics import AbstractTS, TS
-from TabuSearch.problems import SC_QBF
+from GA import Solution
+from GA.metaheuristics import GA
+from GA.problems import SC_QBF
 
 
 def main():
@@ -35,14 +35,13 @@ def main():
 
     # Model creation
     
-    solver = TS(
+    solver = GA(
         obj_function = SC_QBF(n, A, sets),
-        no_improv_iter=5,
-        max_iter=100,
-        tenure=0,
-        constructive_type='cost_ratio',
-        search_type='first',
-        tabu_check='relaxed'
+        generations=100,
+        pop_size=50,
+        chromosome_size=n,
+        mutation_rate=0.01,
+        strategy='std'
     )
 
     solution = solver.solve()

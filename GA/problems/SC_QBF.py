@@ -1,5 +1,5 @@
 from .Evaluator import Evaluator
-from TabuSearch.Solution import Solution
+from GA.Solution import Solution
 from .QBF import QBF
 from .SetCover import SetCover as SC
 
@@ -12,12 +12,10 @@ class SC_QBF(Evaluator):
 
     def __init__(self, n: int, 
                  A: list[list[float]], 
-                 sets: list[set[int]],
-                 maximize: bool = True):
+                 sets: list[set[int]],):
         self.n = n
         self.A = A
         self.sets = sets
-        self.maximize = maximize
 
         self.SC = SC(sets, n)
 
@@ -26,7 +24,7 @@ class SC_QBF(Evaluator):
 
     def evaluate(self, sol: Solution) -> float:
         if not self.is_feasible(sol):
-            sol.cost = float("-inf") if self.maximize else float("inf")
+            sol.cost = float("-inf")
             return sol.cost
 
         cost = 0.0
@@ -36,7 +34,6 @@ class SC_QBF(Evaluator):
                     cost += self.A[i][j]
             cost += self.A[i][i] # Diagonal term
         
-        sol.cost = cost
         return cost
 
     def evaluate_insertion_cost(self, elem: int, sol: Solution) -> float:
@@ -60,12 +57,9 @@ class SC_QBF(Evaluator):
 
         # Only allow removal if still feasible
         if not self.SC.is_feasible(sol.remove(elem)):
-            return float("-inf") if self.maximize else float("inf")
+            return float("-inf")
 
-        current_vars = sol.elements
-        removed_vars = current_vars - sol.elements
-
-        # Only sum upper triangle (i <= j)
+        # Only subtract upper triangle (i <= j)
         delta = 0.0
         for var in sol.elements:
             if var < elem:
@@ -82,7 +76,7 @@ class SC_QBF(Evaluator):
 
         sol_after_removal = sol.remove(elem_out)
         if not self.SC.is_feasible(sol_after_removal.insert(elem_in)):
-            return float("-inf") if self.maximize else float("inf")
+            return float("-inf")
 
         # Compute insertion and removal deltas using upper triangle logic
         delta = self.evaluate_removal_cost(elem_out, sol)
