@@ -68,15 +68,40 @@ class AbstractGA(ABC):
     # ----------------------
     # Concrete Methods
     # ----------------------
+    def initialize_population_std(self):
+        ''' Initializes the population with random chromosomes using standard method. '''
+        return [self.generate_random_chromosome() for _ in range(self.pop_size)]
+    
+    def initialize_population_latin_hypercube(self):
+        ''' Initializes the population using Latin Hypercube Sampling. Assumes binary chromosomes. '''
+        if self.pop_size % 2 != 0:
+            print("[WARNING] Population size should be even for Latin Hypercube Sampling. Incrementing by 1.")
+            self.pop_size += 1  # Adjust to the nearest even number
+        
+        self.population = []
+        
+        for i in range(self.pop_size):
+            chromosome = [0] * self.obj_function.get_domain_size()
+            self.population.append(chromosome)
+        
+        # For each gene position (column), create a random permutation
+        for gene_pos in range(self.obj_function.get_domain_size()):
+            # Create permutation of population indices [0, 1, 2, ..., pop_size-1]
+            permutation = random.sample(range(self.pop_size), self.pop_size)
+            
+            # Assign alleles based on permutation index modulo 2
+            for pop_idx in range(self.pop_size):
+                allele = permutation[pop_idx] % 2
+                self.population[pop_idx][gene_pos] = allele
+
     def initialize_population(self):
         ''' Initializes the population with random chromosomes. '''
         if self.init_stg == "std":
-            population = [self.generate_random_chromosome() for _ in range(self.pop_size)]
+            return self.initialize_population_std()
         elif self.init_stg == "latin_hypercube":
-            pass # TODO: Implement Latin Hypercube Sampling initialization
+            return self.initialize_population_latin_hypercube()
         else:
             raise ValueError(f"Unknown initialization strategy: {self.init_stg}")
-        return population
     
     def get_best_chromosome(self, population):
         ''' Returns the best chromosome in the population based on fitness. '''
