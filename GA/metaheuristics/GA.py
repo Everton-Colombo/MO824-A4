@@ -10,8 +10,10 @@ class GA(AbstractGA):
                  pop_size: int,
                  chromosome_size: int,
                  mutation_rate: float,
-                 strategy: str = "std"):
-        super().__init__(obj_function, generations, pop_size, chromosome_size, mutation_rate, strategy)
+                 init_stg: str = "std",
+                 mutation_stg: str = "std",
+                 population_stg: str = "std"):
+        super().__init__(obj_function, generations, pop_size, chromosome_size, mutation_rate, init_stg, population_stg, mutation_stg)
 
     def create_empty_solution(self):
         return []

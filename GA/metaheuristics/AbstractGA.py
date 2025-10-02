@@ -12,8 +12,9 @@ class AbstractGA(ABC):
                  pop_size: int,
                  chromosome_size: int,
                  mutation_rate: float,
-                 strategy: str = "std",
-                 population_stg: str = "std"):
+                 init_stg: str = "std",
+                 population_stg: str = "std",
+                 mutation_stg: str = "std"):
         ''' Initializes the Genetic Algorithm with the given parameters. 
         Args:
             obj_function (Evaluator): The objective function evaluator.
@@ -21,8 +22,9 @@ class AbstractGA(ABC):
             pop_size (int): Size of the population.
             chromosome_size (int): Size of each chromosome.
             mutation_rate (float): Mutation rate for the genetic algorithm.
-            strategy (str, optional): Strategy for selection. Defaults to "std".
-            population_stg (str, optional): Strategy for population selection. Defaults to "std".
+            init_stg (str, optional): Strategy for initialization. Defaults to "std". Available: "std", "latin_hypercube".
+            population_stg (str, optional): Strategy for population selection. Defaults to "std". Available: "std", "steady_state".
+            mutation_stg (str, optional): Strategy for mutation. Defaults to "std". Available: "std", "adaptive".
         '''
         self.verbose = True
 
@@ -31,8 +33,9 @@ class AbstractGA(ABC):
         self.pop_size = pop_size
         self.chromosome_size = chromosome_size
         self.mutation_rate = mutation_rate
-        self.strategy = strategy    
+        self.init_stg = init_stg    
         self.population_stg = population_stg
+        self.mutation_stg = mutation_stg
 
         self.best_solution = None
         self.best_chromosome = None
@@ -67,7 +70,12 @@ class AbstractGA(ABC):
     # ----------------------
     def initialize_population(self):
         ''' Initializes the population with random chromosomes. '''
-        population = [self.generate_random_chromosome() for _ in range(self.pop_size)]
+        if self.init_stg == "std":
+            population = [self.generate_random_chromosome() for _ in range(self.pop_size)]
+        elif self.init_stg == "latin_hypercube":
+            pass # TODO: Implement Latin Hypercube Sampling initialization
+        else:
+            raise ValueError(f"Unknown initialization strategy: {self.init_stg}")
         return population
     
     def get_best_chromosome(self, population):
@@ -94,51 +102,112 @@ class AbstractGA(ABC):
                 self.mutate_gene(chromosome, locus)
         return chromosome
     
-    def select_parents(self, population):
-        ''' Selects parents for crossover based on the selection strategy. '''
+    def select_parents(self, population): #TODO Check if this is correct 
+        ''' Standard tournament selection.  Selects the best out of 2 random individuals. '''
         parents = []
-        if self.strategy == "std":
-            ''' Standard tournament selection.  Selects the best out of 2 random individuals. '''
-            while len(parents) < self.pop_size:
-                tournament = random.sample(population, 2)
-                winner = max(tournament, key=self.fitness)
-                parents.append(winner)
-        else:
-            raise ValueError(f"Unknown selection strategy: {self.strategy}")
+        while len(parents) < self.pop_size:
+            tournament = random.sample(population, 2)
+            winner = max(tournament, key=self.fitness)
+            parents.append(winner)
         return parents
-    
+
     def select_population_std(self, population, offspring):
-        ''' Selects the next generation population using standard selection. '''
+        ''' Selects the next generation population using standard selection, retaining the best individuals. '''
         combined = population + offspring
         combined.sort(key=self.fitness, reverse=True)
         return combined[:self.pop_size]
+    
+    def select_population_steady_state(self, population, offspring):
+        ''' Selects the next generation population using steady-state selection, replacing the worst individuals with new ones. '''
+        population.sort(key=self.fitness, reverse=True)
+        offspring.sort(key=self.fitness, reverse=True)
+
+        for i in range(min(len(offspring), len(population))):
+            population[-(i+1)] = offspring[i]
+
+        return population
 
     def select_population(self, population, offspring):
         ''' Selects the next generation population based on the selected strategy. '''
         if self.population_stg == "std":
             return self.select_population_std(population, offspring)
+        elif self.population_stg == "steady_state":
+            return self.select_population_steady_state(population, offspring)
 
+    def stopping_criteria(self, generation):
+        ''' Checks if the stopping criteria are met. '''
+        return generation >= self.generations
+    
+    def crossover_criteria(self):
+        ''' Determines if crossover should occur. '''
+        return True  # Always crossover in this simple implementation
+    
+    def get_diversity(self, population):
+        ''' Calculates the normalized diversity of the population.'''
+        P = len(population)
+
+        if P == 0:
+            return 0.0
+        L = self.obj_function.get_domain_size()
+
+        diversity_sum = 0.0
+        for locus in range(L):
+            ones = sum(ch[locus] for ch in population)  # count of 1s at locus
+            p = ones / P
+            # variance of Bernoulli = p*(1-p), max = 0.25 when p=0.5
+            diversity_sum += p * (1 - p)
+        # normalize by maximum possible sum (L * 0.25)
+        return (diversity_sum / (0.25 * L))
+
+
+    def mutation_criteria(self, population, generation):
+        ''' Determines if mutation should occur. '''
+        if self.mutation_stg == "adaptive" and generation % 5 == 0:
+            # Adjust mutation rate based on population diversity every 5 generations
+            if self.get_diversity(population) < 0.3:
+                print("Low diversity detected, increasing mutation rate.", end="")
+                self.mutation_rate = min(1.0, self.mutation_rate * 1.5)  # Increase mutation rate
+            elif self.get_diversity(population) > 0.5:
+                print("High diversity detected, decreasing mutation rate.", end="")
+                self.mutation_rate = max(0.01, self.mutation_rate * 0.75)  # Decrease mutation rate
+        elif self.mutation_stg == "always": # Always mutate
+            return True
+        elif self.mutation_stg == "never": # Never mutate
+            return False
+        # Standard random mutation based on mutation rate
+        return random.random() < self.mutation_rate
+        
     def solve(self):
         ''' Main method to run the Genetic Algorithm. '''
         population = self.initialize_population()
         self.best_chromosome = self.get_best_chromosome(population)
         self.best_solution = self.decode(self.best_chromosome)
+        self.best_solution.cost = self.obj_function.evaluate(self.best_solution)
         
-        for generation in range(self.generations):
-            parents = self.select_parents(population)
-            offspring = []
-            for i in range(0, self.pop_size, 2):
-                parent1 = parents[i]
-                parent2 = parents[i+1] if i+1 < self.pop_size else parents[0]
-                child1, child2 = self.crossover(parent1, parent2)
-                offspring.append(self.mutate(child1))
-                if len(offspring) < self.pop_size:
-                    offspring.append(self.mutate(child2))
-            population = self.select_population(population, offspring)
-            best_in_gen = self.get_best_chromosome(population)
-            if self.best_chromosome is None or self.fitness(best_in_gen) > self.fitness(self.best_chromosome):
-                self.best_chromosome = best_in_gen
-                self.best_solution = self.decode(best_in_gen)
+        generation = 0
+        while not self.stopping_criteria(generation):
+            # if the crossover criteria is met, perform crossover and generate new population
+            if self.verbose:
+                print(f"\nGeneration {generation}| ", end="")
+            if self.crossover_criteria():
+                parents = self.select_parents(population)
+                offspring = []
+                for i in range(0, len(parents), 2):
+                    if i + 1 < len(parents):
+                        off1, off2 = self.crossover(parents[i], parents[i + 1])
+                        offspring.append(off1)
+                        offspring.append(off2)
+                population = self.select_population(population, offspring)
+
+            # If mutation criteria is met, mutate the population
+            if self.mutation_criteria(population, generation):
+                population = [self.mutate(chrom) for chrom in population]
+            
+            self.best_chromosome = self.get_best_chromosome(population)
+            current_best_solution = self.decode(self.best_chromosome)
+            if current_best_solution.cost > self.best_solution.cost:
+                self.best_solution = current_best_solution.copy()
                 if self.verbose:
-                    print(f"Generation {generation+1}: {self.best_solution}")
+                    print(f"New Best {self.best_solution}", end="")
+            generation += 1
         return self.best_solution

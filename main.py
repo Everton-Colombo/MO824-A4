@@ -41,7 +41,9 @@ def main():
         pop_size=50,
         chromosome_size=n,
         mutation_rate=0.01,
-        strategy='std'
+        init_stg='std',
+        mutation_stg='adaptive',
+        population_stg='steady_state'
     )
 
     solution = solver.solve()

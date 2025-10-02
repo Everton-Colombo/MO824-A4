@@ -3,7 +3,7 @@ import time
 import os
 import glob
 
-minutes = 1 # You can change this value to set the desired number of minutes before timeout
+minutes = 0.5 # You can change this value to set the desired number of minutes before timeout
 
 def main():
     input_dir = "instances"   # Directory where input .txt files are stored
