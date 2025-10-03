@@ -32,9 +32,15 @@ class GA(AbstractGA):
         for idx in indices:
             chromosome[idx] = 1
         return chromosome
+
+    def repair_chromossome(self, chromossome) -> list[int]:
+        return chromossome
     
     def fitness(self, chromosome) -> float:
         ''' Evaluates the fitness of a chromosome. '''
+        solution = self.decode(chromossome)
+        if solution.cost >= self.best_solution.cost * 1.1:
+            self.repair_chromossome(chromossome) # TODO: Implement repair_chromossome
         return self.decode(chromosome).cost
     
     def mutate_gene(self, chromosome, locus: int):
