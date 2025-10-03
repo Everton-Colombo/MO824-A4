@@ -4,43 +4,44 @@ import os
 import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-minutes = 0.5  # timeout em minutos
+minutes = 30  # timeout em minutos
 
 def run_instance(file, t_out, log_dir):
     base = os.path.basename(file).replace(".txt", "")
     log_file = os.path.join(log_dir, f"{base}.log")
     filename = os.path.splitext(os.path.basename(file))[0]
 
-    print(f"[{time.strftime('%H:%M')}] Running main.py with input {filename}...")
+    print(f"[{time.strftime('%H:%M')}] Running main.py with input {filename}...", flush=True)
 
     start = time.time()
     try:
         with open(file, "r") as fin, open(log_file, "w") as fout:
-            subprocess.run(
+            process = subprocess.Popen(
                 ["python", "main.py"],
                 stdin=fin,
                 stdout=fout,
-                stderr=subprocess.STDOUT,
-                timeout=t_out
+                stderr=subprocess.STDOUT
             )
-        end = time.time()
+            try:
+                process.wait(timeout=t_out)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                fout.write(f"\n--- Execution timed out after {t_out} seconds ---\n")
+                print(f"[{time.strftime('%H:%M')}] Timeout: {filename}", flush=True)
+                return filename, False
 
+        end = time.time()
+        minutes, seconds = divmod(end - start, 60)
         with open(log_file, "a") as fout:
             fout.write(f"\n--- Finished in {end - start:.2f} seconds ---\n")
 
-        print(f"Finished {filename} in {end - start:.2f} seconds\n")
+        print(f"Finished {filename} in {minutes:.0f}m{seconds:.2f}s\n", flush=True)
         return filename, True
-
-    except subprocess.TimeoutExpired:
-        with open(log_file, "a") as fout:
-            fout.write(f"\n--- Execution timed out after {t_out} seconds ---\n")
-        print(f" Timeout: {filename}")
-        return filename, False
 
     except Exception as e:
         with open(log_file, "a") as fout:
             fout.write(f"\n--- Error: {e} ---\n")
-        print(f" Error running {filename}: {e}")
+        print(f" Error running {filename}: {e}", flush=True)
         return filename, False
 
 
@@ -68,13 +69,6 @@ def main():
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(run_instance, file, t_out, log_dir) for file in files]
 
-        # track progress as they finish
-        for future in as_completed(futures):
-            filename, success = future.result()
-            if success:
-                print(f" Finished: {filename}")
-            else:
-                print(f"[ERROR] Failed or timed out: {filename}")
 
     print("All files processed. Check the logs directory for outputs.")
 
