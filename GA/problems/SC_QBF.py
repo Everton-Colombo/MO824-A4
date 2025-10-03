@@ -18,14 +18,16 @@ class SC_QBF(Evaluator):
         self.sets = sets
 
         self.SC = SC(sets, n)
+        self.feasible = False
 
     def is_feasible(self, sol: Solution) -> bool:
         return self.SC.is_feasible(sol)
 
     def evaluate(self, sol: Solution) -> float:
-        if not self.is_feasible(sol):
-            sol.cost = float("-inf")
-            return sol.cost
+        if self.is_feasible(sol):
+            self.feasible = True
+        else:
+            self.feasible = False
 
         cost = 0.0
         for i in sol:
