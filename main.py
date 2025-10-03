@@ -42,8 +42,8 @@ def main():
         chromosome_size=n,
         mutation_rate=0.01,
         init_stg='std',
-        mutation_stg='adaptive',
-        population_stg='steady_state'
+        mutation_stg='std',
+        population_stg='std'
     )
 
     solution = solver.solve()

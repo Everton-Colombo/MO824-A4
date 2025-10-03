@@ -33,14 +33,42 @@ class GA(AbstractGA):
             chromosome[idx] = 1
         return chromosome
 
-    def repair_chromossome(self, chromossome) -> list[int]:
-        return chromossome
+    def repair_chromosome(self, chromosome):
+        ''' Repairs a chromosome to ensure it represents a feasible solution. 
+        Greedy approach to ensure all elements are covered.
+        '''
+        # 1. Identify covered elements
+        solution = self.decode(chromosome)
+        covered = self.obj_function.coverage(solution)
+        elements = set(range(self.obj_function.get_domain_size()))
+
+        # 2. While there are still uncovered elements
+        while len(covered) != self.obj_function.get_domain_size():
+            uncovered = elements - covered
+
+            # 2a. Evaluate candidates: subsets that are not active yet
+            best_idx = None
+            best_ratio = -1
+            for i, active in enumerate(chromosome):
+                if active == 0:
+                    new_covered = uncovered & set(self.obj_function.sets[i])
+                    if len(new_covered) > 0:
+                        ratio = len(new_covered) * self.obj_function.evaluate_insertion_cost(i, solution)
+                        if ratio > best_ratio:
+                            best_ratio = ratio
+                            best_idx = i
+
+            # 2b. Activate the best subset found
+            chromosome[best_idx] = 1
+            covered.update(self.obj_function.sets[best_idx])
+
     
     def fitness(self, chromosome) -> float:
         ''' Evaluates the fitness of a chromosome. '''
-        solution = self.decode(chromossome)
-        if solution.cost >= self.best_solution.cost * 1.1:
-            self.repair_chromossome(chromossome) # TODO: Implement repair_chromossome
+        solution = self.decode(chromosome)
+        # If the chromosome is not feasible but promising, repair it
+        if self.best_solution is not None and solution.cost >= self.best_solution.cost * 1.1:
+            self.repair_chromosome(chromosome)
         return self.decode(chromosome).cost
     
     def mutate_gene(self, chromosome, locus: int):

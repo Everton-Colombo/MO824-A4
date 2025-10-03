@@ -22,6 +22,9 @@ class SC_QBF(Evaluator):
 
     def is_feasible(self, sol: Solution) -> bool:
         return self.SC.is_feasible(sol)
+    
+    def coverage(self, sol: Solution) -> set[int]:
+        return self.SC.coverage(sol)
 
     def evaluate(self, sol: Solution) -> float:
         if self.is_feasible(sol):

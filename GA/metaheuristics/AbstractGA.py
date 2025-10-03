@@ -65,6 +65,11 @@ class AbstractGA(ABC):
         ''' Mutates a single gene in the chromosome. '''
         pass
 
+    @abstractmethod
+    def repair_chromosome(self, chromosome):
+        ''' Adjusts the chromosome to be a feasible solution. '''
+        pass
+
     # ----------------------
     # Concrete Methods
     # ----------------------

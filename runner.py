@@ -34,13 +34,13 @@ def run_instance(file, t_out, log_dir):
     except subprocess.TimeoutExpired:
         with open(log_file, "a") as fout:
             fout.write(f"\n--- Execution timed out after {t_out} seconds ---\n")
-        print(f"⏱ Timeout: {filename}")
+        print(f" Timeout: {filename}")
         return filename, False
 
     except Exception as e:
         with open(log_file, "a") as fout:
             fout.write(f"\n--- Error: {e} ---\n")
-        print(f"❌ Error running {filename}: {e}")
+        print(f" Error running {filename}: {e}")
         return filename, False
 
 
@@ -48,33 +48,33 @@ def main():
     input_dir = "instances"
     log_dir = "logs"
 
-    # prepara diretório de logs
+    # prepare input directory
     os.makedirs(log_dir, exist_ok=True)
     for f in glob.glob(os.path.join(log_dir, "*")):
         try:
             os.remove(f)
         except Exception as e:
-            print(f"Warning: Could not remove {f}: {e}")
+            print(f"[WARNING] Could not remove {f}: {e}")
 
     t_out = 60 * minutes
     files = sorted(glob.glob(os.path.join(input_dir, "*.txt")))
 
-    # número de processos = núcleos disponíveis ou quantidade de instâncias
+    # number of workers = available cores or number of instances
     max_workers = min(len(files), os.cpu_count() or 4)
 
-    print(f"👉 Executando {len(files)} instâncias em até {max_workers} processos...\n")
+    print(f" Running {len(files)} instances in up to {max_workers} processes...\n")
 
-    # executa em paralelo
+    # runs in parallel
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(run_instance, file, t_out, log_dir) for file in files]
 
-        # acompanhar progresso conforme terminam
+        # track progress as they finish
         for future in as_completed(futures):
             filename, success = future.result()
             if success:
-                print(f"✅ Concluído: {filename}")
+                print(f" Finished: {filename}")
             else:
-                print(f"⚠️ Falhou ou expirou: {filename}")
+                print(f"[ERROR] Failed or timed out: {filename}")
 
     print("All files processed. Check the logs directory for outputs.")
 
