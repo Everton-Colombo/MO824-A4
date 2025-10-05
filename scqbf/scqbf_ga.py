@@ -4,6 +4,7 @@ from .scqbf_evaluator import *
 import time
 import random
 from dataclasses import dataclass
+import numpy as np
 
 from typing import List, Literal
 
@@ -16,11 +17,11 @@ Population = List[Chromosome]
 @dataclass
 class GAStrategy:
     population_init: Literal["random", "latin_hypercube"] = "random"
-    # Add other strategies as needed
+    mutation_strategy: Literal["standard", "adaptive"] = "standard"
 class ScQbfGA:
     
     def __init__(self, instance: ScQbfInstance, population_size: int = 100, mutation_rate_multiplier: int = 1,
-                 ga_strategy: GAStrategy = GAStrategy(), debug_options: dict = {}):
+                 ga_strategy: GAStrategy = GAStrategy(), termination_options: dict = {}, debug_options: dict = {}):
         # GA related properties
         self.instance = instance
         self.evaluator = ScQbfEvaluator(instance)
@@ -32,6 +33,7 @@ class ScQbfGA:
 
         self.ga_strategy = ga_strategy
         self.debug_options = debug_options
+        self.termination_options = termination_options
         self._cache = {}
         
         # Internal properties for managing execution and termination criteria
@@ -49,10 +51,10 @@ class ScQbfGA:
 
         self._iter += 1
         self.execution_time = time.time() - self._start_time
-        
-        max_iter = self.debug_options.get("max_iter", None)
-        time_limit_secs = self.debug_options.get("time_limit_secs", None)
-        patience = self.debug_options.get("patience", None)
+
+        max_iter = self.termination_options.get("max_iter", None)
+        time_limit_secs = self.termination_options.get("time_limit_secs", None)
+        patience = self.termination_options.get("patience", None)
 
         if max_iter is not None and self._iter >= max_iter:
             self.stop_reason = "max_iter"
@@ -81,7 +83,13 @@ class ScQbfGA:
 
         if self.debug_options.get("save_history", False):
             self.history.append((self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 0))
-
+        
+        if self.debug_options.get("save_mrate_history", False):
+            if not hasattr(self, 'mutation_rate_history'):
+                self.mutation_rate_history = []
+                self.diversity_history = []
+            self.mutation_rate_history.append(self.mutation_rate_multiplier)
+            self.diversity_history.append(self._get_diversity(self.population))
 
     def solve(self) -> ScQbfSolution:
         """ Main method to solve the problem using a genetic algorithm. """
@@ -217,14 +225,56 @@ class ScQbfGA:
         return offspring
     
     def _mutate(self, offspring: Population) -> Population:
+        if self.ga_strategy.mutation_strategy == "standard":
+            return self._mutate_standard(offspring)
+        elif self.ga_strategy.mutation_strategy == "adaptive":
+            return self._mutate_adaptive(offspring)
+        else:
+            raise ValueError(f"Unknown mutation strategy: {self.ga_strategy.mutation_strategy}")
+
+    def _mutate_standard(self, offspring: Population) -> Population:
+        """ Standard bit-flip mutation implementation using Poisson distribution."""
         for chromosome in offspring:
-            mutation_rate = 1 / self.instance.n * self.mutation_rate_multiplier # when multiplier = 1, expected 1 mutation per chromosome
-            for i in range(len(chromosome)):
-                if random.random() < mutation_rate:
-                    chromosome[i] = 1 - chromosome[i]  # Flip bit
+            lambda_param = self.mutation_rate_multiplier # expected number of mutations per chromosome
+            num_mutations = np.random.poisson(lam=lambda_param)
+            
+            if num_mutations > 0:
+                num_mutations = min(num_mutations, self.instance.n)  # Cap at chromosome length
+                mutation_loci = random.sample(range(self.instance.n), num_mutations)
+                
+                # Flip bits at selected loci
+                for locus in mutation_loci:
+                    chromosome[locus] = 1 - chromosome[locus]
+            
             chromosome = self._make_feasible(chromosome)
         
         return offspring
+    
+    def _mutate_adaptive(self, offspring: Population) -> Population:
+        if not hasattr(self, 'original_mutation_rate_multiplier'):
+            self.original_mutation_rate_multiplier = self.mutation_rate_multiplier
+        
+        if self._iter % 5 == 0:  # Adjust every 5 iterations
+            if self._get_diversity(offspring) < 0.2:
+                self.mutation_rate_multiplier = min(self.original_mutation_rate_multiplier + 2, self.mutation_rate_multiplier + 0.25)
+            elif self._get_diversity(offspring) > 0.5:
+                self.mutation_rate_multiplier = max(min(self.original_mutation_rate_multiplier - 2, 0.25), self.mutation_rate_multiplier - 0.25)
+
+            print(f"Adaptive mutation rate multiplier adjusted to: {self.mutation_rate_multiplier}")
+        
+        return self._mutate_standard(offspring)
+    
+    def _get_diversity(self, population: Population) -> float:
+        ''' Calculates the normalized diversity of the population.'''
+        P = len(population)
+
+        diversity_sum = 0.0
+        for locus in range(self.instance.n):
+            ones = sum(ch[locus] for ch in population)  # count of 1s at locus
+            p = ones / P
+            diversity_sum += p * (1 - p)
+        
+        return (diversity_sum / (0.25 * self.instance.n))
 
     def _select_population(self, offspring: Population) -> Population:
         """Elitist selection implementation. replace worst single offspring with best from previous generation."""
