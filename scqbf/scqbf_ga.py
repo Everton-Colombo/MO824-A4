@@ -48,7 +48,6 @@ class ScQbfGA:
 
     def _eval_termination_condition(self) -> bool:
         """ Check if the termination condition is met, while also managing termination criteria properties."""
-
         self._iter += 1
         self.execution_time = time.time() - self._start_time
 
@@ -79,7 +78,7 @@ class ScQbfGA:
     def _perform_debug_actions(self):
         """ Perform debug actions, such as logging or printing debug information. """
         if self.debug_options.get("verbose", False):
-            print(f"Iteration {self._iter}: Best fitness = {self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 'N/A'}")
+            print(f"Iteration {self._iter}: Best fitness = {f"{self.evaluator.evaluate_objfun(self.best_solution):.2f}" if self.best_solution else 'N/A'}")
 
         if self.debug_options.get("save_history", False):
             self.history.append((self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 0))
@@ -110,7 +109,7 @@ class ScQbfGA:
                 if self.best_solution is None or fitness > self.evaluator.evaluate_objfun(self.best_solution):
                     self.best_solution = solution
                     self.best_chromosome = chromosome
-        
+    
         return self.best_solution
         
     def decode(self, chromosome: Chromosome) -> ScQbfSolution:

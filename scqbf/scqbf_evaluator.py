@@ -21,7 +21,7 @@ class ScQbfEvaluator:
             for j in solution.elements:
                 total += A[i][j]
 
-        solution._last_objfun_val = total
+        solution._objfun_val = total
         return total
 
     def _evaluate_element_contribution(self, elem: int, solution: ScQbfSolution) -> float:
