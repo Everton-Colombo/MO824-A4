@@ -47,7 +47,7 @@ class GA(AbstractGA):
             uncovered = elements - covered
 
             # 2a. Evaluate candidates: subsets that are not active yet
-            best_idx = None
+            best_idx = random.randint(0, self.chromosome_size - 1)
             best_ratio = -1
             for i, active in enumerate(chromosome):
                 if active == 0:

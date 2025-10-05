@@ -5,6 +5,7 @@ import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 minutes = 30  # timeout em minutos
+log_dir = "latin_hypercube_adaptive_logs"
 
 def run_instance(file, t_out, log_dir):
     base = os.path.basename(file).replace(".txt", "")
@@ -35,7 +36,7 @@ def run_instance(file, t_out, log_dir):
         with open(log_file, "a") as fout:
             fout.write(f"\n--- Finished in {end - start:.2f} seconds ---\n")
 
-        print(f"Finished {filename} in {minutes:.0f}m{seconds:.2f}s\n", flush=True)
+        print(f"[{time.strftime('%H:%M')}] Finished {filename} in {minutes:.0f}m{seconds:.2f}s\n", flush=True)
         return filename, True
 
     except Exception as e:
@@ -47,7 +48,6 @@ def run_instance(file, t_out, log_dir):
 
 def main():
     input_dir = "instances"
-    log_dir = "logs"
 
     # prepare input directory
     os.makedirs(log_dir, exist_ok=True)

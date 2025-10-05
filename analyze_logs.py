@@ -3,45 +3,54 @@ import re
 from statistics import mean
 
 # Directory containing the logs
-LOG_DIR = 'logs'
 
-# Regex patterns
-final_solution_pattern = re.compile(r'Final Solution: cost=\[([-\d\.]+)\], size=\[\d+\], elements=\{.*\}')
-time_pattern = re.compile(r'--- Finished in ([\d\.]+) seconds ---')
-instance_size_pattern = re.compile(r'(\d+)')
+def find_last_cost_reverse(file_path):
+    pattern = r"cost=\[(\d+\.\d+)\]"  # Regular expression to match cost=[<float>]
+
+    with open(file_path, 'r') as file:
+        for line in reversed(list(file.readlines())):  # Read lines in reverse order
+            match = re.search(pattern, line)
+            if match:
+                return f"{match.group(1)}"  # Return the first match (last occurrence in the file)
+
+    return None  # Return None if no match is found
 
 # Data structure: {instance_size: [(cost, time), ...]}
 results = {}
+instances = set()
+LOGS_DIR = 'logs'
 
-for filename in os.listdir(LOG_DIR):
-    if not filename.endswith('.log'):
-        continue
-    # Extract instance size from filename (first number found)
-    match = instance_size_pattern.search(filename)
-    if not match:
-        continue
-    instance_size = int(match.group(1))
-    with open(os.path.join(LOG_DIR, filename), 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    cost = None
-    time = None
-    for line in lines:
-        m_cost = final_solution_pattern.search(line)
-        if m_cost:
-            cost = float(m_cost.group(1))
-        m_time = time_pattern.search(line)
-        if m_time:
-            time = float(m_time.group(1))
-    if cost is not None and time is not None:
-        results.setdefault(instance_size, []).append((cost, time))
+for folder in os.listdir(LOGS_DIR):
+    log_dir = os.path.join(LOGS_DIR, folder)
+    folder = folder.replace('_logs', '')
+    results[folder] = []
+    for filename in os.listdir(log_dir):
+        instances.add(filename.replace('.log', ''))
+        if not filename.endswith('.log'):
+            continue
+        # Extract last cost from the log file
+        cost = find_last_cost_reverse(os.path.join(log_dir, filename))
+        results[folder].append(cost) 
 
+       
 # Print summary
-print(f"{'Instance Size':>15} | {'Best Cost':>10} | {'Avg Cost':>10} | {'Avg Time (s)':>12}")
-print('-'*55)
-for size in sorted(results):
-    costs = [c for c, t in results[size]]
-    times = [t for c, t in results[size]]
-    best_cost = max(costs)
-    avg_cost = mean(costs)
-    avg_time = mean(times)
-    print(f"{size:15} | {best_cost:10.2f} | {avg_cost:10.2f} | {avg_time:12.2f}")
+instances = sorted(instances)
+keys = ['std', 'std2', 'latin_hypercube', 'steady_state', 'adaptive', 'adaptive_steady', 'latin_hypercube_steady']
+lines = []
+for i, instance in enumerate(instances):
+    # Get the values for the current instance
+    line = f"{instance} & & "
+
+    for folder in keys:
+        
+        line += f"{results[folder][i]} & "
+    line = line[:-2] + " \\\\"
+    lines.append(line)
+
+for line in lines:
+    max_cost, i = max((float(cost), i) for i, cost in enumerate(line.split('&')[2:]))  # Skip the first two columns
+    min_cost, j = min((float(cost), i) for i, cost in enumerate(line.split('&')[2:]))  # Skip the first two columns
+    line[i] = line[i].replace(f"{max_cost}", f"\\textcolor{{blue}}{{{max_cost}}}")
+    line[j] = line[j].replace(f"{min_cost}", f"\\textcolor{{red}}{{{min_cost}}}")
+    print(' & '.join(line))
+print("\n")

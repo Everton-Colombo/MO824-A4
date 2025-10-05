@@ -39,6 +39,7 @@ class AbstractGA(ABC):
 
         self.best_solution = None
         self.best_chromosome = None
+        self.no_improv_iter = 0
 
     @abstractmethod
     def create_empty_solution(self):
@@ -83,11 +84,11 @@ class AbstractGA(ABC):
             print("[WARNING] Population size should be even for Latin Hypercube Sampling. Incrementing by 1.")
             self.pop_size += 1  # Adjust to the nearest even number
         
-        self.population = []
+        population = []
         
         for i in range(self.pop_size):
             chromosome = [0] * self.obj_function.get_domain_size()
-            self.population.append(chromosome)
+            population.append(chromosome)
         
         # For each gene position (column), create a random permutation
         for gene_pos in range(self.obj_function.get_domain_size()):
@@ -97,7 +98,8 @@ class AbstractGA(ABC):
             # Assign alleles based on permutation index modulo 2
             for pop_idx in range(self.pop_size):
                 allele = permutation[pop_idx] % 2
-                self.population[pop_idx][gene_pos] = allele
+                population[pop_idx][gene_pos] = allele
+        return population
 
     def initialize_population(self):
         ''' Initializes the population with random chromosomes. '''
@@ -132,7 +134,7 @@ class AbstractGA(ABC):
                 self.mutate_gene(chromosome, locus)
         return chromosome
     
-    def select_parents(self, population): #TODO Check if this is correct 
+    def select_parents(self, population):
         ''' Standard tournament selection.  Selects the best out of 2 random individuals. '''
         parents = []
         while len(parents) < self.pop_size:
@@ -166,7 +168,11 @@ class AbstractGA(ABC):
 
     def stopping_criteria(self, generation):
         ''' Checks if the stopping criteria are met. '''
-        return generation >= self.generations
+        if generation >= self.generations:
+            return True
+        elif self.no_improv_iter > self.generations // 4:
+            print("No improvement in last 25% of generations. Stopping early.", end="", flush=True)
+            return True
     
     def crossover_criteria(self):
         ''' Determines if crossover should occur. '''
@@ -213,12 +219,13 @@ class AbstractGA(ABC):
         self.best_chromosome = self.get_best_chromosome(population)
         self.best_solution = self.decode(self.best_chromosome)
         self.best_solution.cost = self.obj_function.evaluate(self.best_solution)
+        self.no_improv_iter = 0
         
         generation = 0
         while not self.stopping_criteria(generation):
             # if the crossover criteria is met, perform crossover and generate new population
             if self.verbose:
-                print(f"\nGeneration {generation}| ", end="")
+                print(f"\nGeneration {generation}| ", end="", flush=True)
             if self.crossover_criteria():
                 parents = self.select_parents(population)
                 offspring = []
@@ -236,8 +243,11 @@ class AbstractGA(ABC):
             self.best_chromosome = self.get_best_chromosome(population)
             current_best_solution = self.decode(self.best_chromosome)
             if current_best_solution.cost > self.best_solution.cost:
+                self.no_improv_iter = 0
                 self.best_solution = current_best_solution.copy()
                 if self.verbose:
-                    print(f"New Best {self.best_solution}", end="")
+                    print(f"New Best {self.best_solution}", end="", flush=True)
+            else:
+                self.no_improv_iter += 1
             generation += 1
         return self.best_solution

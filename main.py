@@ -34,22 +34,26 @@ def main():
                 A[j][i] = upper_A[i][j]
 
     # Model creation
-    
+    '''
+            init_stg (str, optional) Available: "std", "latin_hypercube".
+            population_stg (str, optional) Available: "std", "steady_state".
+            mutation_stg (str, optional) Available: "std", "adaptive".
+    '''
     solver = GA(
         obj_function = SC_QBF(n, A, sets),
-        generations=100,
-        pop_size=50,
+        generations=2*n,
+        pop_size=2*n,
         chromosome_size=n,
-        mutation_rate=0.01,
-        init_stg='std',
-        mutation_stg='std',
-        population_stg='std'
+        mutation_rate=0.9,
+        init_stg='latin_hypercube',
+        mutation_stg='adaptive',
+        population_stg='std',
     )
 
     solution = solver.solve()
 
 
-    print(f"\nFinal {solution}")
+    print(f"\nFinal {solution}", flush=True)
 
 
 if __name__=='__main__':
