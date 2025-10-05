@@ -43,14 +43,15 @@ for i, instance in enumerate(instances):
 
     for folder in keys:
         
-        line += f"{results[folder][i]} & "
-    line = line[:-2] + " \\\\"
+        line += f"{results[folder][i]} &"
     lines.append(line)
 
+# TODO FIX: highlight min and max in each row
 for line in lines:
     max_cost, i = max((float(cost), i) for i, cost in enumerate(line.split('&')[2:]))  # Skip the first two columns
     min_cost, j = min((float(cost), i) for i, cost in enumerate(line.split('&')[2:]))  # Skip the first two columns
-    line[i] = line[i].replace(f"{max_cost}", f"\\textcolor{{blue}}{{{max_cost}}}")
-    line[j] = line[j].replace(f"{min_cost}", f"\\textcolor{{red}}{{{min_cost}}}")
+    line[i].replace(f"{max_cost}", f"\\textcolor{{blue}}{{{max_cost}}}")
+    line[j].replace(f"{min_cost}", f"\\textcolor{{red}}{{{min_cost}}}")
+    line = line[:-2] + " \\\\"
     print(' & '.join(line))
 print("\n")
