@@ -78,7 +78,7 @@ class ScQbfGA:
     def _perform_debug_actions(self):
         """ Perform debug actions, such as logging or printing debug information. """
         if self.debug_options.get("verbose", False):
-            print(f"Iteration {self._iter}: Best fitness = {f"{self.evaluator.evaluate_objfun(self.best_solution):.2f}" if self.best_solution else 'N/A'}")
+            print(f"Iteration {self._iter}: Best fitness = {f'{self.evaluator.evaluate_objfun(self.best_solution):.2f}' if self.best_solution else 'N/A'}")
 
         if self.debug_options.get("save_history", False):
             self.history.append((self.evaluator.evaluate_objfun(self.best_solution) if self.best_solution else 0))
