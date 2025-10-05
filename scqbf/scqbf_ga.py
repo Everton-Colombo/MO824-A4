@@ -55,14 +55,14 @@ class ScQbfGA:
         time_limit_secs = self.termination_options.get("time_limit_secs", None)
         patience = self.termination_options.get("patience", None)
 
-        if max_iter is not None and self._iter >= max_iter:
+        if max_iter is not None and self._iter > max_iter:
             self.stop_reason = "max_iter"
             return True
-        if time_limit_secs is not None and self.execution_time >= time_limit_secs:
+        if time_limit_secs is not None and self.execution_time > time_limit_secs:
             self.stop_reason = "time_limit"
             return True
         if patience is not None:
-            if self._no_improvement_iter >= patience:
+            if self._no_improvement_iter > patience:
                 self.stop_reason = "patience_exceeded"
                 return True
             elif self.best_solution is not None and self._prev_best_solution is not None:
