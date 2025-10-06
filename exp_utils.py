@@ -12,7 +12,7 @@ def run_single_experiment(args):
         instance = read_max_sc_qbf_instance(instance_path)
         
         time_limit = 60 * 30
-        ga = ScQbfGA(instance, pop_size, mutation_rate, termination_options={'time_limit_secs': time_limit, 'patience': 1000}, ga_strategy=config)
+        ga = ScQbfGA(instance, pop_size, mutation_rate, termination_options={'time_limit_secs': time_limit, 'patience': 10*instance.n}, ga_strategy=config)
         best_solution = ga.solve()
 
         evaluator = ScQbfEvaluator(instance)
