@@ -259,7 +259,8 @@ class ScQbfGA:
             elif self._get_diversity(offspring) > 0.5:
                 self.mutation_rate_multiplier = max(min(self.original_mutation_rate_multiplier - 2, 0.25), self.mutation_rate_multiplier - 0.25)
 
-            print(f"Adaptive mutation rate multiplier adjusted to: {self.mutation_rate_multiplier}")
+            if self.debug_options.get("verbose", False):
+                print(f"Adaptive mutation rate multiplier adjusted to: {self.mutation_rate_multiplier}")
         
         return self._mutate_standard(offspring)
     
